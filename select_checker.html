@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Table HTML 접근성 점검 도구</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f8fafc; }
+    h1 { font-size: 1.7rem; margin-bottom: 1rem; }
+    textarea { width: 100%; min-height: 180px; margin-bottom: 1rem; padding: 1rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 1rem; }
+    button { padding: 0.6em 1.4em; font-size: 1.05rem; border-radius: 7px; border: none; background: #2563eb; color: #fff; cursor: pointer; }
+    .result { background: #fff; border-radius: 10px; margin-top: 1.5rem; padding: 1.5rem; box-shadow: 0 3px 20px #0001; }
+    .result section { margin-bottom: 1.5rem; }
+    .result strong { color: #0a5cdd; }
+    ul { margin: 0.4rem 0 0 1rem; }
+    .warn { color: #db2777; font-weight: bold; }
+    .ok { color: #22c55e; font-weight: bold; }
+    .preview-wrap { background: #f1f5f9; padding: 1em; border-radius: 8px; margin-top: 0.7em; overflow-x: auto; }
+    .table-preview { max-width: 100%; border-collapse: collapse; margin: 1em 0; }
+    .table-preview th, .table-preview td { border: 1px solid #bbb; padding: 0.5em 0.8em; font-size: 1em; }
+    .table-preview caption { caption-side: top; font-weight: bold; margin-bottom: 0.5em; }
+    .headers-list { margin: 0.5em 0 0.5em 1.2em; }
+    .headers-list li { margin-bottom: 0.3em; }
+    .headers-list .header-id { background: #e0e7ff; color: #312e81; padding: 0.1em 0.4em; border-radius: 5px; font-size: 0.97em; }
+    .headers-list .header-txt { background: #fef9c3; color: #713f12; padding: 0.1em 0.4em; border-radius: 5px; font-size: 0.97em; }
+  </style>
+</head>
+<body>
+  <h1>Table HTML 접근성 점검 도구</h1>
+  <p>아래에 <strong>table 전체 HTML</strong> 코드를 붙여넣고 "점검"을 클릭하세요.</p>
+  <textarea id="input" placeholder="여기에 &lt;table&gt; ... &lt;/table&gt; 코드를 붙여넣으세요."></textarea>
+  <button id="checkBtn">점검</button>
+
+  <div id="result" class="result" style="display:none"></div>
+
+  <script>
+    function escapeHtml(str) {
+      return str.replace(/[&<>]/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])
+      );
+    }
+    function getCellText(cell) {
+      return cell.textContent.trim().replace(/\s+/g, ' ');
+    }
+    function analyzeTable(table) {
+      // 1. caption, summary
+      let caption = table.querySelector('caption');
+      let summary = table.getAttribute('summary');
+      // 2. id 가진 모든 th/td
+      let idMap = {};
+      table.querySelectorAll('th[id],td[id]').forEach(cell => {
+        idMap[cell.id] = cell;
+      });
+      // 3. headers 속성 정보
+      let headersDetails = [];
+      table.querySelectorAll('td[headers],th[headers]').forEach(cell => {
+        let headersAttr = cell.getAttribute('headers');
+        let ids = headersAttr ? headersAttr.split(/\s+/) : [];
+        let refCells = ids.map(id =>
+          idMap[id] ? getCellText(idMap[id]) : '[누락]'
+        );
+        headersDetails.push({
+          cellText: getCellText(cell),
+          ids,
+          refCells
+        });
+      });
+      // 4. scope 속성 체크
+      let scopeList = [];
+      table.querySelectorAll('td,th').forEach(cell => {
+        let scope = cell.getAttribute('scope');
+        if (scope) {
+          scopeList.push({text:getCellText(cell), scope});
+        }
+      });
+      return { caption, summary, headersDetails, scopeList };
+    }
+
+    document.getElementById('checkBtn').onclick = function() {
+      let code = document.getElementById('input').value.trim();
+      let resultDiv = document.getElementById('result');
+      resultDiv.style.display = 'block';
+      if (!code) {
+        resultDiv.innerHTML = '<span class="warn">※ table 코드를 입력해주세요.</span>';
+        return;
+      }
+      // 파싱
+      let parser = new DOMParser();
+      let html = `<body>${code}</body>`;
+      let doc = parser.parseFromString(html, 'text/html');
+      let table = doc.querySelector('table');
+      if (!table) {
+        resultDiv.innerHTML = '<span class="warn">※ 유효한 &lt;table&gt; 태그가 없습니다.</span>';
+        return;
+      }
+      let { caption, summary, headersDetails, scopeList } = analyzeTable(table);
+
+      // 결과 출력
+      let htmlResult = '';
+      htmlResult += `<section><strong>1. Caption / Summary 정보</strong><ul>`;
+      htmlResult += `<li>caption: ${caption ? '<span class="ok">'+escapeHtml(getCellText(caption))+'</span>' : '<span class="warn">없음</span>'}</li>`;
+      htmlResult += `<li>summary: ${summary ? '<span class="ok">'+escapeHtml(summary)+'</span>' : '<span class="warn">없음</span>'}</li>`;
+      htmlResult += `</ul></section>`;
+
+      htmlResult += `<section><strong>2. id/headers 연결 정보 (th/td 모두)</strong>`;
+      if (headersDetails.length) {
+        htmlResult += `<ul class="headers-list">`;
+        headersDetails.forEach((lnk, i) => {
+          htmlResult += `<li>${i+1}. <b>셀 내용:</b> ${escapeHtml(lnk.cellText)}<br>
+            <b>headers:</b> ${
+              lnk.ids.map(id => `<span class="header-id">${escapeHtml(id)}</span>`).join(' ')
+            }<br>
+            <b>연결된 셀:</b> ${
+              escapeHtml(lnk.refCells.join(', '))
+            }
+            </li>`;
+        });
+        htmlResult += `</ul>`;
+      } else {
+        htmlResult += `<span class="warn">headers로 연결된 셀 없음</span>`;
+      }
+      htmlResult += `</section>`;
+
+      htmlResult += `<section><strong>3. scope 속성 점검</strong>`;
+      if (scopeList.length) {
+        htmlResult += `<ul>`;
+        scopeList.forEach((cell, i) => {
+          htmlResult += `<li>${i+1}. <b>${escapeHtml(cell.text)}</b> (scope="${cell.scope}")</li>`;
+        });
+        htmlResult += `</ul>`;
+      } else {
+        htmlResult += `<span class="warn">scope 속성이 지정된 셀이 없음</span>`;
+      }
+      htmlResult += `</section>`;
+
+      // 실제 표로 미리보기
+      htmlResult += `<section><details open><summary>입력한 table 미리보기</summary>
+      <div class="preview-wrap">${getTablePreviewHtml(code)}</div></details></section>`;
+
+      resultDiv.innerHTML = htmlResult;
+    };
+
+    // 입력받은 table 소스를 실제 표로 렌더링
+    function getTablePreviewHtml(tableCode) {
+      let safe = '';
+      try {
+        let parser = new DOMParser();
+        let doc = parser.parseFromString(`<body>${tableCode}</body>`, 'text/html');
+        let table = doc.querySelector('table');
+        if (!table) return '<span class="warn">유효한 &lt;table&gt; 코드가 아님</span>';
+        table.classList.add('table-preview');
+        safe = table.outerHTML;
+      } catch(e) {
+        safe = '<span class="warn">렌더링 오류: 올바른 table 소스인지 확인하세요.</span>';
+      }
+      return safe;
+    }
+  </script>
+</body>
+</html>
