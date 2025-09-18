@@ -159,7 +159,7 @@
         const optgroups = select.querySelectorAll('optgroup');
         selectInfo.optgroupsCount = optgroups.length;
 
-        // HR 요소 체크 (접근성 문제)
+        // HR 요소 체크 
         const hrElements = select.querySelectorAll('hr');
         selectInfo.hasHrElements = hrElements.length > 0;
 
@@ -183,11 +183,11 @@
         }
 
         if (selectInfo.hasHrElements) {
-          results.issues.push(`Select #${selectInfo.index}: &lt;hr&gt; 요소를 포함하고 있습니다. HR 요소는 접근성 트리에 노출되지 않아 스크린 리더 사용자에게 전달되지 않습니다.`);
+          results.issues.push(`Select #${selectInfo.index}: &lt;hr&gt; 요소를 포함하고 있습니다. hr 요소는 접근성 트리에 노출되지 않아 스크린 리더 사용자에게 전달되지 않습니다.`);
         }
 
         if (selectInfo.isRequired && !selectInfo.hasEmptyOption) {
-          results.issues.push(`Select #${selectInfo.index}: required 속성이 있지만 빈 옵션이 없습니다. 사용자가 선택을 취소할 수 없을 수 있습니다.`);
+          results.issues.push(`Select #${selectInfo.index}: required 속성이 있지만 빈 옵션이 없습니다. 사용자가 선택을 취소할 수 없습니다.`);
         }
 
         if (selectInfo.optionsWithoutValue > 0) {
@@ -262,15 +262,15 @@
             <summary>▶ Select #${selectInfo.index} ${selectInfo.id ? `(id="${selectInfo.id}")` : '(id 없음)'}</summary>
             <div style="padding: 1rem 0;">
               <div class="metric">
-                <span class="metric-label">ID 속성:</span>
+                <span class="metric-label">id 속성:</span>
                 <span class="metric-value ${selectInfo.hasId ? 'ok' : 'warn'}">${selectInfo.hasId ? selectInfo.id : '없음'}</span>
               </div>
               <div class="metric">
-                <span class="metric-label">Name 속성:</span>
+                <span class="metric-label">name 속성:</span>
                 <span class="metric-value ${selectInfo.hasName ? 'ok' : 'warn'}">${selectInfo.hasName ? selectInfo.name : '없음'}</span>
               </div>
               <div class="metric">
-                <span class="metric-label">Label 연결:</span>
+                <span class="metric-label">label 연결:</span>
                 <span class="metric-value ${selectInfo.hasLabel ? 'ok' : 'warn'}">${selectInfo.hasLabel ? `있음 (${selectInfo.labelType})` : '없음'}</span>
               </div>
               ${selectInfo.labelText ? `
@@ -299,17 +299,17 @@
                 </span>
               </div>
               <div class="metric">
-                <span class="metric-label">Multiple 선택:</span>
+                <span class="metric-label">다중 선택:</span>
                 <span class="metric-value">${selectInfo.isMultiple ? '가능' : '불가능'}</span>
               </div>
               <div class="metric">
-                <span class="metric-label">Required:</span>
-                <span class="metric-value">${selectInfo.isRequired ? '필수' : '선택'}</span>
+                <span class="metric-label">필수 입력값 여부(required):</span>
+                <span class="metric-value">${selectInfo.isRequired ? '필수 입력값' : '선택 입력값'}</span>
               </div>
               ${selectInfo.hasHrElements ? `
               <div class="metric">
                 <span class="metric-label">HR 요소:</span>
-                <span class="metric-value warn">⚠️ 접근성 문제 있음</span>
+                <span class="metric-value warn">⚠️ 존재</span>
               </div>` : ''}
               ${selectInfo.disabledOptionsCount > 0 ? `
               <div class="metric">
@@ -333,11 +333,11 @@
       htmlResult += `<section>
         <h2>💡 접근성 점검 사항</h2>
         <ul>
-          <li><strong>▷ 레이블은 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
+          <li><strong>▷ 레이블 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
           <li><strong>▷ id와 name 속성:</strong> id는 label과 연결하기 위해, name은 폼 데이터 전송을 위해 필요합니다.</li>
-          <li><strong>▷ HR 요소 주의:</strong> select 내부의 &lt;hr&gt; 요소는 스크린 리더에 전달되지 않으므로 시각적 구분만 제공합니다.</li>
-          <li><strong>▷ optgroup 활용:</strong> 많은 옵션이 있을 경우 optgroup으로 논리적 그룹을 만들면 탐색이 쉬워집니다.</li>
-          <li><strong>▷ 기본값 제공:</strong> required가 아닌 경우 "선택하세요" 같은 빈 옵션을 첫 번째로 제공하는 것이 좋습니다.</li>
+          <li><strong>▷ hr 요소:</strong> select 내부의 &lt;hr&gt; 적용되지 않습니다.</li>
+          <li><strong>▷ optgroup 활용:</strong> 많은 옵션이 있을 경우 optgroup으로 논리적 그룹을 만들어주면 탐색이 쉽습니다.</li>
+          <li><strong>▷ 기본값 제공:</strong> "선택하세요" 같은 빈 옵션을 첫 번째로 제공하는 것이 좋습니다.</li>
           <li><strong>▷ 키보드 접근성:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시 주의가 필요합니다.</li>
         </ul>
       </section>`;
