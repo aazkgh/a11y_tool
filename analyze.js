@@ -193,7 +193,7 @@ document.getElementById('checkBtn').onclick = function() {
     // 성공 항목
     if (analysis.successes.length > 0) {
     htmlResult += `<section>
-        <h2>✅ 올바른 구현 <span class="badge badge-success">${analysis.successes.length}개</span></h2>`;
+        <h2>✅ 접근성 구현 사항 <span class="badge badge-success">${analysis.successes.length}개</span></h2>`;
     analysis.successes.forEach(success => {
         htmlResult += `<div class="issue-item success">${escapeHtml(success)}</div>`;
     });
@@ -203,7 +203,7 @@ document.getElementById('checkBtn').onclick = function() {
     // 상세 분석
     if (analysis.selects.length > 0) {
     htmlResult += `<section>
-        <h2>📊 상세 분석 정보</h2>`;
+        <h2>📊 상세 정보</h2>`;
     
     analysis.selects.forEach(selectInfo => {
         htmlResult += `<details>
@@ -273,13 +273,13 @@ document.getElementById('checkBtn').onclick = function() {
 
     // 미리보기
     htmlResult += `<section>
-    <h2>👁️ 입력한 코드 미리보기</h2>
+    <h2>👁️ 코드 미리보기</h2>
     <div class="preview-wrap">${code}</div>
     </section>`;
 
     // 접근성 점검 사항
     htmlResult += `<section>
-    <h2>💡 접근성 점검 사항</h2>
+    <h2>💡Tip: 접근성 점검 사항</h2>
     <ul>
         <li><strong>▷ 레이블 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
         <li><strong>▷ id와 name 속성:</strong> id는 label과 연결하기 위해, name은 폼 데이터 전송을 위해 필요합니다.</li>
