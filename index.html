@@ -34,11 +34,6 @@
     details { margin-top: 1rem; }
     summary { cursor: pointer; font-weight: 600; color: #334155; padding: 0.5rem; background: #f8fafc; border-radius: 6px; transition: background 0.2s; }
     summary:hover { background: #e2e8f0; }
-    .score-container { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-    .score-card { flex: 1; padding: 1.2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); }
-    .score-card h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; opacity: 0.9; }
-    .score-card .score { font-size: 2.5rem; font-weight: bold; margin: 0; }
-    .score-card .score-label { font-size: 0.85rem; opacity: 0.8; }
     .issue-item { background: #fef9f3; border-left: 4px solid #f59e0b; padding: 0.8rem; margin-bottom: 0.8rem; border-radius: 0 6px 6px 0; }
     .issue-item.error { background: #fef2f2; border-left-color: #ef4444; }
     .issue-item.success { background: #f0fdf4; border-left-color: #22c55e; }
@@ -65,7 +60,6 @@
     function analyzeSelect(doc) {
       const results = {
         selects: [],
-        totalScore: 100,
         issues: [],
         warnings: [],
         successes: []
@@ -75,7 +69,6 @@
       
       if (!selects.length) {
         results.issues.push('유효한 &lt;select&gt; 태그가 없습니다.');
-        results.totalScore = 0;
         return results;
       }
 
@@ -175,7 +168,6 @@
         // 점수 계산 및 이슈 판단
         if (!selectInfo.hasLabel && !selectInfo.hasAriaLabel && !selectInfo.hasAriaLabelledby) {
           results.issues.push(`Select #${selectInfo.index}: 레이블이 없습니다. label, aria-label 또는 aria-labelledby 중 하나는 필수입니다.`);
-          results.totalScore -= 25;
         } else if (selectInfo.hasLabel) {
           results.successes.push(`Select #${selectInfo.index}: 적절한 레이블이 연결되어 있습니다 (${selectInfo.labelType}).`);
         } else if (selectInfo.hasAriaLabel) {
@@ -186,32 +178,26 @@
 
         if (!selectInfo.hasId) {
           results.warnings.push(`Select #${selectInfo.index}: id 속성이 없습니다. label과 연결하려면 id가 필요합니다.`);
-          results.totalScore -= 5;
         }
 
         if (!selectInfo.hasName) {
           results.warnings.push(`Select #${selectInfo.index}: name 속성이 없습니다. 폼 제출 시 필요합니다.`);
-          results.totalScore -= 5;
         }
 
         if (selectInfo.hasHrElements) {
           results.issues.push(`Select #${selectInfo.index}: &lt;hr&gt; 요소를 포함하고 있습니다. HR 요소는 접근성 트리에 노출되지 않아 스크린 리더 사용자에게 전달되지 않습니다.`);
-          results.totalScore -= 10;
         }
 
         if (selectInfo.isRequired && !selectInfo.hasEmptyOption) {
           results.warnings.push(`Select #${selectInfo.index}: required 속성이 있지만 빈 옵션이 없습니다. 사용자가 선택을 취소할 수 없을 수 있습니다.`);
-          results.totalScore -= 3;
         }
 
         if (selectInfo.optionsWithoutValue > 0) {
           results.warnings.push(`Select #${selectInfo.index}: value 속성이 없는 옵션이 ${selectInfo.optionsWithoutValue}개 있습니다.`);
-          results.totalScore -= 2;
         }
 
         if (selectInfo.optionsCount === 0) {
           results.issues.push(`Select #${selectInfo.index}: 옵션이 하나도 없습니다.`);
-          results.totalScore -= 10;
         }
 
         if (selectInfo.isMultiple) {
@@ -225,7 +211,6 @@
         results.selects.push(selectInfo);
       });
 
-      results.totalScore = Math.max(0, results.totalScore);
       return results;
     }
 
@@ -248,15 +233,6 @@
       
       // 결과 HTML 생성
       let htmlResult = '';
-
-      // 점수 카드
-      htmlResult += `<div class="score-container">
-        <div class="score-card">
-          <h3>접근성 점수</h3>
-          <div class="score">${analysis.totalScore}</div>
-          <div class="score-label">/ 100점</div>
-        </div>
-      </div>`;
 
       // 주요 이슈
       if (analysis.issues.length > 0) {
