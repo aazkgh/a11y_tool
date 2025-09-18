@@ -5,50 +5,49 @@
   <title>select 태그 접근성 점검 도구</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f8fafc; }
-    h1 { font-size: 1.7rem; margin-bottom: 1rem; color: #1e293b; }
-    .description { color: #475569; margin-bottom: 1.5rem; line-height: 1.6; }
-    textarea { width: 100%; min-height: 200px; margin-bottom: 1rem; padding: 1rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 1rem; font-family: 'Courier New', monospace; }
+    * { margin: 0; padding: 0; box-sizing: border-box; list-style: none; }
+    body { padding: 0; font-family: sans-serif; background: #f8fafc; }
+    h1 { font-size: 1.7rem; padding: 1rem; color: #1e293b; }
+    .content { width: 100%; padding: 0 2rem 1.6rem; display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5rem; }
+    .description { color: #475569; line-height: 1.6; }
+    textarea { width: 100%; min-height: 200px; padding: 1rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 1rem; font-family: 'Courier New', monospace; }
     button { padding: 0.6em 1.4em; font-size: 1.05rem; border-radius: 7px; border: none; background: #2563eb; color: #fff; cursor: pointer; transition: background 0.2s; }
     button:hover { background: #1d4ed8; }
     button:active { transform: scale(0.98); }
-    .result { background: #fff; border-radius: 10px; margin-top: 1.5rem; padding: 1.5rem; box-shadow: 0 3px 20px #0001; }
-    .result section { margin-bottom: 1.8rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e2e8f0; }
-    .result section:last-child { border-bottom: none; }
-    .result h2 { color: #0f172a; font-size: 1.2rem; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+    #result { max-width: 100%; background: #fff; border-radius: 10px; padding: 1.5rem; box-shadow: 0 3px 20px #0001; flex-direction: column; gap: 1rem; }
+    #result section { padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
+    #result section:last-child { padding-bottom: 0; border-bottom: none; }
+    #result h2 { color: #0f172a; font-size: 1.2rem; padding-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
     .warn { color: #dc2626; font-weight: 600; }
     .ok { color: #16a34a; font-weight: 600; }
     .info { color: #0891b2; font-weight: 600; }
     .badge { display: inline-block; padding: 0.2em 0.6em; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; }
     .badge-error { background: #fee2e2; color: #b91c1c; }
-    .badge-warning { background: #fef3c7; color: #a16207; }
     .badge-success { background: #dcfce7; color: #15803d; }
     .badge-info { background: #e0f2fe; color: #0369a1; }
-    ul { margin: 0.5rem 0 0 1.2rem; }
-    li { margin-bottom: 0.4rem; line-height: 1.5; }
-    .preview-wrap { background: #f1f5f9; padding: 1.2em; border-radius: 8px; margin-top: 0.8em; overflow-x: auto; }
+    .preview-wrap { background: #f1f5f9; padding: 1.2em; border-radius: 8px; overflow-x: auto; }
     .code-snippet { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.4em 0.6em; font-family: 'Courier New', monospace; font-size: 0.9em; color: #0f172a; }
-    .metric { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; background: #f8fafc; border-radius: 6px; margin-bottom: 0.5rem; }
+    .metric { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; background: #f8fafc; border-radius: 6px; }
     .metric-label { font-weight: 500; color: #475569; }
     .metric-value { font-weight: 700; font-size: 1.1em; }
-    details { margin-top: 1rem; }
     summary { cursor: pointer; font-weight: 600; color: #334155; padding: 0.5rem; background: #f8fafc; border-radius: 6px; transition: background 0.2s; }
     summary:hover { background: #e2e8f0; }
-    .issue-item { background: #fef9f3; border-left: 4px solid #f59e0b; padding: 0.8rem; margin-bottom: 0.8rem; border-radius: 0 6px 6px 0; }
+    .issue-item { background: #fef9f3; border-left: 4px solid #f59e0b; padding: 0.8rem; border-radius: 0 6px 6px 0; }
     .issue-item.error { background: #fef2f2; border-left-color: #ef4444; }
     .issue-item.success { background: #f0fdf4; border-left-color: #22c55e; }
   </style>
 </head>
 <body>
   <h1>🔍 select 태그 접근성 점검 도구</h1>
-  <div class="description">
-    <p>이 도구는 <strong>&lt;select&gt;</strong> 요소의 접근성을 점검합니다. MDN 문서 기준과 웹 접근성 모범 사례를 기반으로 검사합니다.</p>
-    <p>아래에 HTML 코드를 붙여넣고 "점검"을 클릭하세요.</p>
-  </div>
-  <textarea id="input" placeholder="여기에 &lt;select&gt; ... &lt;/select&gt; 코드를 붙여넣으세요.&#10;&#10;예시:&#10;&lt;label for=&quot;pet-select&quot;&gt;Choose a pet:&lt;/label&gt;&#10;&lt;select id=&quot;pet-select&quot; name=&quot;pets&quot;&gt;&#10;  &lt;option value=&quot;&quot;&gt;--Please choose--&lt;/option&gt;&#10;  &lt;option value=&quot;dog&quot;&gt;Dog&lt;/option&gt;&#10;&lt;/select&gt;"></textarea>
-  <button id="checkBtn">🔍 접근성 점검</button>
-
-  <div id="result" class="result" style="display:none"></div>
+  <main class="content">
+    <div class="description">
+      이 도구는 <strong>&lt;select&gt;</strong> 요소의 접근성을 점검합니다. MDN 문서 기준과 웹 접근성 모범 사례를 기반으로 검사합니다.<br/>
+      아래에 HTML 코드를 붙여넣고 "접근성 점검"을 클릭하세요.
+    </div>
+    <textarea id="input" placeholder="여기에 &lt;select&gt; ... &lt;/select&gt; 코드를 붙여넣으세요.&#10;&#10;예시:&#10;&lt;label for=&quot;pet-select&quot;&gt;Choose a pet:&lt;/label&gt;&#10;&lt;select id=&quot;pet-select&quot; name=&quot;pets&quot;&gt;&#10;  &lt;option value=&quot;&quot;&gt;--Please choose--&lt;/option&gt;&#10;  &lt;option value=&quot;dog&quot;&gt;Dog&lt;/option&gt;&#10;&lt;/select&gt;"></textarea>
+    <button id="checkBtn">접근성 점검</button>
+    <div id="result" style="display:none"></div>
+  </main>
 
   <script>
     function escapeHtml(str) {
@@ -61,7 +60,6 @@
       const results = {
         selects: [],
         issues: [],
-        warnings: [],
         successes: []
       };
 
@@ -177,11 +175,11 @@
         }
 
         if (!selectInfo.hasId) {
-          results.warnings.push(`Select #${selectInfo.index}: id 속성이 없습니다. label과 연결하려면 id가 필요합니다.`);
+          results.issues.push(`Select #${selectInfo.index}: id 속성이 없습니다. label과 연결하려면 id가 필요합니다.`);
         }
 
         if (!selectInfo.hasName) {
-          results.warnings.push(`Select #${selectInfo.index}: name 속성이 없습니다. 폼 제출 시 필요합니다.`);
+          results.issues.push(`Select #${selectInfo.index}: name 속성이 없습니다. 폼 제출 시 필요합니다.`);
         }
 
         if (selectInfo.hasHrElements) {
@@ -189,11 +187,11 @@
         }
 
         if (selectInfo.isRequired && !selectInfo.hasEmptyOption) {
-          results.warnings.push(`Select #${selectInfo.index}: required 속성이 있지만 빈 옵션이 없습니다. 사용자가 선택을 취소할 수 없을 수 있습니다.`);
+          results.issues.push(`Select #${selectInfo.index}: required 속성이 있지만 빈 옵션이 없습니다. 사용자가 선택을 취소할 수 없을 수 있습니다.`);
         }
 
         if (selectInfo.optionsWithoutValue > 0) {
-          results.warnings.push(`Select #${selectInfo.index}: value 속성이 없는 옵션이 ${selectInfo.optionsWithoutValue}개 있습니다.`);
+          results.issues.push(`Select #${selectInfo.index}: value 속성이 없는 옵션이 ${selectInfo.optionsWithoutValue}개 있습니다.`);
         }
 
         if (selectInfo.optionsCount === 0) {
@@ -217,7 +215,7 @@
     document.getElementById('checkBtn').onclick = function() {
       const code = document.getElementById('input').value.trim();
       const resultDiv = document.getElementById('result');
-      resultDiv.style.display = 'block';
+      resultDiv.style.display = 'flex';
       
       if (!code) {
         resultDiv.innerHTML = '<span class="warn">※ HTML 코드를 입력해주세요.</span>';
@@ -237,19 +235,9 @@
       // 주요 이슈
       if (analysis.issues.length > 0) {
         htmlResult += `<section>
-          <h2>❌ 심각한 접근성 이슈 <span class="badge badge-error">${analysis.issues.length}개</span></h2>`;
+          <h2>❌ 접근성 이슈 <span class="badge badge-error">${analysis.issues.length}개</span></h2>`;
         analysis.issues.forEach(issue => {
-          htmlResult += `<div class="issue-item error">${escapeHtml(issue)}</div>`;
-        });
-        htmlResult += `</section>`;
-      }
-
-      // 경고 사항
-      if (analysis.warnings.length > 0) {
-        htmlResult += `<section>
-          <h2>⚠️ 경고 사항 <span class="badge badge-warning">${analysis.warnings.length}개</span></h2>`;
-        analysis.warnings.forEach(warning => {
-          htmlResult += `<div class="issue-item">${escapeHtml(warning)}</div>`;
+          htmlResult += `<div class="issue-item error">${issue}</div>`;
         });
         htmlResult += `</section>`;
       }
@@ -271,8 +259,8 @@
         
         analysis.selects.forEach(selectInfo => {
           htmlResult += `<details>
-            <summary>Select #${selectInfo.index} ${selectInfo.id ? `(id="${selectInfo.id}")` : '(id 없음)'}</summary>
-            <div style="padding: 1rem;">
+            <summary>▶ Select #${selectInfo.index} ${selectInfo.id ? `(id="${selectInfo.id}")` : '(id 없음)'}</summary>
+            <div style="padding: 1rem 0;">
               <div class="metric">
                 <span class="metric-label">ID 속성:</span>
                 <span class="metric-value ${selectInfo.hasId ? 'ok' : 'warn'}">${selectInfo.hasId ? selectInfo.id : '없음'}</span>
@@ -341,16 +329,16 @@
         <div class="preview-wrap">${code}</div>
       </section>`;
 
-      // 접근성 개선 팁
+      // 접근성 점검 사항
       htmlResult += `<section>
-        <h2>💡 접근성 개선 팁</h2>
+        <h2>💡 접근성 점검 사항</h2>
         <ul>
-          <li><strong>레이블은 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
-          <li><strong>id와 name 속성:</strong> id는 label과 연결하기 위해, name은 폼 데이터 전송을 위해 필요합니다.</li>
-          <li><strong>HR 요소 주의:</strong> select 내부의 &lt;hr&gt; 요소는 스크린 리더에 전달되지 않으므로 시각적 구분만 제공합니다.</li>
-          <li><strong>optgroup 활용:</strong> 많은 옵션이 있을 경우 optgroup으로 논리적 그룹을 만들면 탐색이 쉬워집니다.</li>
-          <li><strong>기본값 제공:</strong> required가 아닌 경우 "선택하세요" 같은 빈 옵션을 첫 번째로 제공하는 것이 좋습니다.</li>
-          <li><strong>키보드 접근성:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시 주의가 필요합니다.</li>
+          <li><strong>▷ 레이블은 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
+          <li><strong>▷ id와 name 속성:</strong> id는 label과 연결하기 위해, name은 폼 데이터 전송을 위해 필요합니다.</li>
+          <li><strong>▷ HR 요소 주의:</strong> select 내부의 &lt;hr&gt; 요소는 스크린 리더에 전달되지 않으므로 시각적 구분만 제공합니다.</li>
+          <li><strong>▷ optgroup 활용:</strong> 많은 옵션이 있을 경우 optgroup으로 논리적 그룹을 만들면 탐색이 쉬워집니다.</li>
+          <li><strong>▷ 기본값 제공:</strong> required가 아닌 경우 "선택하세요" 같은 빈 옵션을 첫 번째로 제공하는 것이 좋습니다.</li>
+          <li><strong>▷ 키보드 접근성:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시 주의가 필요합니다.</li>
         </ul>
       </section>`;
 
@@ -361,7 +349,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       const textarea = document.getElementById('input');
       if (textarea.value === '') {
-        // 사용자가 쉽게 테스트할 수 있도록 예제 제공
         textarea.placeholder = `여기에 <select> ... </select> 코드를 붙여넣으세요.`;
       }
     });
