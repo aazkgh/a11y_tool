@@ -237,19 +237,12 @@ document.getElementById('checkBtn').onclick = function() {
             <span class="metric-value">"${escapeHtml(selectInfo.ariaLabelledbyText)}"</span>
             </div>` : ''}
             <div class="metric">
-            <span class="metric-label">옵션 개수:</span>
-            <span class="metric-value">${selectInfo.optionsCount}개</span>
-            </div>
-            <div class="metric">
             <span class="metric-label">Optgroup 사용:</span>
             <span class="metric-value ${selectInfo.optgroupsCount > 0 ? 'info' : ''}">
                 ${selectInfo.optgroupsCount > 0 ? `${selectInfo.optgroupsCount}개` : '사용 안 함'}
             </span>
             </div>
             <div class="metric">
-            <span class="metric-label">다중 선택:</span>
-            <span class="metric-value">${selectInfo.isMultiple ? '가능' : '불가능'}</span>
-            </div>
             <div class="metric">
             <span class="metric-label">필수 입력값 여부(required):</span>
             <span class="metric-value">${selectInfo.isRequired ? '필수 입력값' : '선택 입력값'}</span>
@@ -284,7 +277,7 @@ document.getElementById('checkBtn').onclick = function() {
         <li><strong>▷ 레이블 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
         <li><strong>▷ id와 name 속성:</strong> id는 label과 연결하기 위해, name은 폼 데이터 전송을 위해 필요합니다.</li>
         <li><strong>▷ hr 요소:</strong> select 내부의 &lt;hr&gt; 적용되지 않습니다.</li>
-        <li><strong>▷ optgroup 활용:</strong> 많은 옵션이 있을 경우 optgroup으로 논리적 그룹을 만들어주면 탐색이 쉽습니다.</li>
+        <li><strong>▷ optgroup 활용:</strong> 옵션이 여러 개라면, optgroup으로 그룹을 만들어주면 탐색이 쉽습니다.</li>
         <li><strong>▷ 기본값 제공:</strong> "선택하세요" 같은 빈 옵션을 첫 번째로 제공하는 것이 좋습니다.</li>
         <li><strong>▷ 키보드 접근성:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시 주의가 필요합니다.</li>
     </ul>
