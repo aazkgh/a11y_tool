@@ -118,8 +118,6 @@ function analyzeSelect(doc, originalCode) {
       hasAriaLabelledby: select.hasAttribute("aria-labelledby"),
       ariaLabelledbyText: "",
       hasAriaDescribedby: select.hasAttribute("aria-describedby"),
-      hasTitle: select.hasAttribute("title"),
-      titleText: select.getAttribute("title") || "",
       hasHrElements: select.querySelectorAll("hr").length > 0,
       optionsCount: select.options.length,
       optionsWithoutValue: 0,
@@ -187,14 +185,6 @@ function analyzeSelect(doc, originalCode) {
       selectInfo.labelValid = true;
     }
 
-    // 5. title을 Label 연결로 인정 (최후 수단)
-    if (!selectInfo.hasLabel && selectInfo.hasTitle) {
-      selectInfo.hasLabel = true;
-      selectInfo.labelText = selectInfo.titleText;
-      selectInfo.labelType = "title 속성";
-      selectInfo.labelValid = true;
-    }
-
     // Options 분석
     Array.from(select.options).forEach((option) => {
       if (
@@ -240,11 +230,10 @@ function analyzeSelect(doc, originalCode) {
     if (hasRealLabel) labelMechanisms.push("label");
     if (selectInfo.hasAriaLabel) labelMechanisms.push("aria-label");
     if (selectInfo.hasAriaLabelledby) labelMechanisms.push("aria-labelledby");
-    if (selectInfo.hasTitle) labelMechanisms.push("title");
 
     if (!selectInfo.hasLabel) {
       results.issues.push(
-        `Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 또는 title 중 하나는 필수입니다.`
+        `Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 중 하나는 필수입니다.`
       );
     } else {
       results.successes.push(
@@ -372,13 +361,6 @@ document.getElementById("checkBtn").onclick = function () {
                 : ""
             }
             ${
-              info.hasTitle && info.labelType !== "title 속성"
-                ? `<div class="metric"><span class="metric-label">title 속성:</span><span class="metric-value">"${escapeHtml(
-                    info.titleText
-                  )}"</span></div>`
-                : ""
-            }
-            ${
               info.hasHrElements
                 ? `<div class="metric"><span class="metric-label">HR 요소:</span><span class="metric-value critical">⚠️ 접근성 문제 있음</span></div>`
                 : ""
@@ -403,9 +385,9 @@ document.getElementById("checkBtn").onclick = function () {
   htmlResult += `<section>
     <h2>💡Tip: 접근성 점검 사항</h2>
     <ul>
-        <li><strong>▷ 레이블 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 명확한 설명을 제공해야 합니다.</li>
-        <li><strong>▷ ID 중복 금지:</strong> 페이지 내 모든 ID는 고유해야 합니다. 중복된 ID는 label 연결 및 보조기기 작동을 방해합니다.</li>
-        <li><strong>▷ 중복 속성 제거:</strong> <code>required</code>와 <code>aria-required</code> 같은 의미가 중복되는 속성은 하나만 사용하세요.</li>
+        <li><strong>▷ 레이블 필수:</strong> 모든 select 요소는 label, aria-label, 또는 aria-labelledby를 통해 설명을 제공해야 합니다.</li>
+        <li><strong>▷ ID 중복 금지:</strong> 페이지 내 모든 ID는 고유해야 합니다. </li>
+        <li><strong>▷ 중복 속성 제거:</strong> 같은 용도로 사용되는 속성은 하나만 사용해주세요.</li>
         <li><strong>▷ 의미있는 요소 사용:</strong> select 내부의 <code>&lt;hr&gt;</code>은 스크린 리더에 전달되지 않습니다. <code>&lt;optgroup&gt;</code>으로 그룹화하는 것이 좋습니다.</li>
         <li><strong>▷ 키보드 접근성:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시 키보드 함정(keyboard trap)이 발생하지 않도록 주의해야 합니다.</li>
     </ul>
