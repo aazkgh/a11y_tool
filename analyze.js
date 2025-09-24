@@ -58,27 +58,18 @@ function validateMarkup(code) {
   return issues;
 }
 
-/**
- * select 요소의 접근성과 마크업을 분석합니다.
- * @param {Document} doc - 파싱된 HTML 문서 객체
- * @param {string} originalCode - 사용자가 입력한 원본 HTML 문자열
- * @returns {object} 분석 결과 객체
- */
 function analyzeSelect(doc, originalCode) {
-  // 1. 결과 객체를 모든 카테고리를 포함하여 초기화
   const results = {
     selects: [],
-    criticalIssues: [],
     issues: [],
-    warnings: [],
     successes: [],
   };
 
-  // 2. 마크업 유효성 검사를 '치명적 문제'로 분류
+  // 마크업 유효성 검사
   const markupIssues = validateMarkup(originalCode);
   if (markupIssues.length > 0) {
     markupIssues.forEach((issue) => {
-      results.criticalIssues.push(`마크업 오류: ${issue}`);
+      results.issues.push(`마크업 오류: ${issue}`);
     });
   }
 
@@ -89,7 +80,7 @@ function analyzeSelect(doc, originalCode) {
     return results;
   }
 
-  // 3. ID 중복 체크를 '치명적 문제'로 분류
+  // ID 중복 체크
   const idMap = new Map();
   const allElements = doc.querySelectorAll("[id]");
   allElements.forEach((el) => {
@@ -106,14 +97,14 @@ function analyzeSelect(doc, originalCode) {
 
   idMap.forEach((elements, id) => {
     if (elements.length > 1) {
-      results.criticalIssues.push(
-        `중복된 ID 발견: "${id}"가 ${elements.length}개 요소에서 사용됨`
+      results.issues.push(
+        `중복 ID: "${id}"가 ${elements.length}개 요소에서 사용됨`
       );
     }
   });
 
   selects.forEach((select, index) => {
-    // 4. selectInfo 객체에 누락된 속성(optionsWithoutValue 등)을 0으로 초기화
+    // selectInfo 객체에 누락된 속성(optionsWithoutValue 등)을 0으로 초기화
     const selectInfo = {
       index: index + 1,
       hasId: select.hasAttribute("id"),
@@ -129,11 +120,9 @@ function analyzeSelect(doc, originalCode) {
       hasAriaDescribedby: select.hasAttribute("aria-describedby"),
       hasTitle: select.hasAttribute("title"),
       titleText: select.getAttribute("title") || "",
-      isDisabled: select.hasAttribute("disabled"),
       hasHrElements: select.querySelectorAll("hr").length > 0,
       optionsCount: select.options.length,
       optionsWithoutValue: 0,
-      disabledOptionsCount: 0,
       hasEmptyOption: false,
       duplicateAriaAttributes: [],
     };
@@ -152,7 +141,8 @@ function analyzeSelect(doc, originalCode) {
       selectInfo.ariaLabelledbyText = texts.join(" ");
     }
 
-    // Label 연결 체크 (명시적, 암시적)
+    // Label 연결 체크 - 여러 방식을 모두 인정
+    // 1. 명시적 label (for 속성)
     if (selectInfo.hasId) {
       const labels = doc.querySelectorAll(`label[for="${selectInfo.id}"]`);
       if (labels.length > 0) {
@@ -161,13 +151,14 @@ function analyzeSelect(doc, originalCode) {
         selectInfo.labelType = "for 속성 연결";
         selectInfo.labelValid = true;
         if (labels.length > 1) {
-          results.warnings.push(
+          results.issues.push(
             `Select #${selectInfo.index}: 동일한 for 속성을 가진 label이 ${labels.length}개 발견됨`
           );
         }
       }
     }
 
+    // 2. 암시적 label (label 내부)
     if (!selectInfo.hasLabel) {
       const parentLabel = select.closest("label");
       if (parentLabel) {
@@ -178,6 +169,30 @@ function analyzeSelect(doc, originalCode) {
         selectInfo.labelType = "암시적 연결 (label 내부)";
         selectInfo.labelValid = true;
       }
+    }
+
+    // 3. aria-labelledby를 Label 연결로 인정
+    if (!selectInfo.hasLabel && selectInfo.hasAriaLabelledby) {
+      selectInfo.hasLabel = true;
+      selectInfo.labelText = selectInfo.ariaLabelledbyText;
+      selectInfo.labelType = "aria-labelledby";
+      selectInfo.labelValid = true;
+    }
+
+    // 4. aria-label을 Label 연결로 인정
+    if (!selectInfo.hasLabel && selectInfo.hasAriaLabel) {
+      selectInfo.hasLabel = true;
+      selectInfo.labelText = selectInfo.ariaLabelText;
+      selectInfo.labelType = "aria-label";
+      selectInfo.labelValid = true;
+    }
+
+    // 5. title을 Label 연결로 인정 (최후 수단)
+    if (!selectInfo.hasLabel && selectInfo.hasTitle) {
+      selectInfo.hasLabel = true;
+      selectInfo.labelText = selectInfo.titleText;
+      selectInfo.labelType = "title 속성";
+      selectInfo.labelValid = true;
     }
 
     // Options 분석
@@ -196,55 +211,52 @@ function analyzeSelect(doc, originalCode) {
           selectInfo.optionsWithoutValue++;
         }
       }
-      if (option.hasAttribute("disabled")) {
-        selectInfo.disabledOptionsCount++;
-      }
     });
 
-    // 5. 중복 속성 및 상태 속성 검사를 '경고'로 분류
+    // 중복 속성 및 상태 속성 검사를 '경고'로 분류
     if (
       select.hasAttribute("required") &&
       select.hasAttribute("aria-required")
     ) {
       selectInfo.duplicateAriaAttributes.push("required와 aria-required");
-      results.warnings.push(
+      results.issues.push(
         `Select #${selectInfo.index}: required와 aria-required가 동시에 사용됨. required만 사용하세요.`
       );
     }
 
     if (select.getAttribute("aria-invalid") === "true") {
-      results.warnings.push(
+      results.issues.push(
         `Select #${selectInfo.index}: aria-invalid="true"로 설정됨. 폼 검증 상태를 명확히 관리하세요.`
       );
     }
 
     // 접근성 레이블 제공 여부 최종 판단
     const labelMechanisms = [];
-    if (selectInfo.hasLabel) labelMechanisms.push("label");
+    // 실제 label 요소가 있는지 별도로 체크
+    const hasRealLabel =
+      selectInfo.labelType === "for 속성 연결" ||
+      selectInfo.labelType === "암시적 연결 (label 내부)";
+
+    if (hasRealLabel) labelMechanisms.push("label");
     if (selectInfo.hasAriaLabel) labelMechanisms.push("aria-label");
     if (selectInfo.hasAriaLabelledby) labelMechanisms.push("aria-labelledby");
     if (selectInfo.hasTitle) labelMechanisms.push("title");
 
-    if (labelMechanisms.length === 0) {
-      results.criticalIssues.push(
+    if (!selectInfo.hasLabel) {
+      results.issues.push(
         `Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 또는 title 중 하나는 필수입니다.`
       );
     } else {
       results.successes.push(
-        `Select #${selectInfo.index}: 접근 가능한 이름(${labelMechanisms[0]})이 제공되었습니다.`
+        `Select #${selectInfo.index}: ${selectInfo.labelType}이 제공되었습니다.`
       );
       if (labelMechanisms.length > 1) {
-        results.warnings.push(
+        results.issues.push(
           `Select #${
             selectInfo.index
           }: 여러 레이블링 방법(${labelMechanisms.join(
             ", "
           )})이 사용되었습니다. 하나만 사용하는 것을 권장합니다.`
-        );
-      }
-      if (labelMechanisms.includes("title") && labelMechanisms.length === 1) {
-        results.warnings.push(
-          `Select #${selectInfo.index}: title 속성만으로 레이블을 제공하는 것은 권장하지 않습니다. <label>을 사용하세요.`
         );
       }
     }
@@ -297,36 +309,15 @@ document.getElementById("checkBtn").onclick = function () {
     return;
   }
 
-  // 6. analyzeSelect 호출 시 원본 코드(code)를 두 번째 인자로 전달
+  // analyzeSelect 호출 시 원본 코드(code)를 두 번째 인자로 전달
   const analysis = analyzeSelect(doc, code);
 
   let htmlResult = "";
-
-  // 7. 모든 카테고리(치명적, 이슈, 경고, 성공)를 화면에 표시하도록 로직 개선
-  if (analysis.criticalIssues.length > 0) {
-    htmlResult += `<section><h2>🚨 치명적 문제 <span class="badge badge-critical">${analysis.criticalIssues.length}개</span></h2>`;
-    analysis.criticalIssues.forEach((issue) => {
-      htmlResult += `<div class="issue-item critical">${escapeHtml(
-        issue
-      )}</div>`;
-    });
-    htmlResult += `</section>`;
-  }
 
   if (analysis.issues.length > 0) {
     htmlResult += `<section><h2>❌ 접근성 이슈 <span class="badge badge-error">${analysis.issues.length}개</span></h2>`;
     analysis.issues.forEach((issue) => {
       htmlResult += `<div class="issue-item error">${escapeHtml(issue)}</div>`;
-    });
-    htmlResult += `</section>`;
-  }
-
-  if (analysis.warnings.length > 0) {
-    htmlResult += `<section><h2>⚠️ 경고 사항 <span class="badge badge-warning">${analysis.warnings.length}개</span></h2>`;
-    analysis.warnings.forEach((warning) => {
-      htmlResult += `<div class="issue-item warning">${escapeHtml(
-        warning
-      )}</div>`;
     });
     htmlResult += `</section>`;
   }
@@ -345,43 +336,43 @@ document.getElementById("checkBtn").onclick = function () {
   if (analysis.selects.length > 0) {
     htmlResult += `<section><h2>📊 상세 정보</h2>`;
     analysis.selects.forEach((info) => {
+      const idDisplay = info.hasId ? `id="${info.id}"` : "id 없음";
+
       htmlResult += `
         <details>
-          <summary>▶ Select #${info.index} ${
-        info.id ? `(id="${info.id}")` : "(id 없음)"
-      }</summary>
+          <summary>▶ Select #${info.index} (${idDisplay})</summary>
           <div style="padding: 1rem 0;">
-            <div class="metric"><span class="metric-label">ID 속성:</span><span class="metric-value ${
+            <div class="metric"><span class="metric-label">ID명:</span><span class="metric-value ${
               info.hasId ? "ok" : "warn"
             }">${info.hasId ? info.id : "없음"}</span></div>
-            <div class="metric"><span class="metric-label">Label 연결:</span><span class="metric-value ${
+            <div class="metric"><span class="metric-label">label 연결:</span><span class="metric-value ${
               info.hasLabel ? "ok" : "critical"
             }">${
         info.hasLabel ? `있음 (${info.labelType})` : "없음"
       }</span></div>
             ${
               info.labelText
-                ? `<div class="metric"><span class="metric-label">Label 텍스트:</span><span class="metric-value">"${escapeHtml(
+                ? `<div class="metric"><span class="metric-label">label 이름:</span><span class="metric-value">"${escapeHtml(
                     info.labelText
                   )}"</span></div>`
                 : ""
             }
             ${
-              info.hasAriaLabel
+              info.hasAriaLabel && info.labelType !== "aria-label"
                 ? `<div class="metric"><span class="metric-label">aria-label:</span><span class="metric-value">"${escapeHtml(
                     info.ariaLabelText
                   )}"</span></div>`
                 : ""
             }
             ${
-              info.hasAriaLabelledby
+              info.hasAriaLabelledby && info.labelType !== "aria-labelledby"
                 ? `<div class="metric"><span class="metric-label">aria-labelledby:</span><span class="metric-value">"${escapeHtml(
                     info.ariaLabelledbyText
                   )}"</span></div>`
                 : ""
             }
             ${
-              info.hasTitle
+              info.hasTitle && info.labelType !== "title 속성"
                 ? `<div class="metric"><span class="metric-label">title 속성:</span><span class="metric-value">"${escapeHtml(
                     info.titleText
                   )}"</span></div>`
@@ -399,10 +390,6 @@ document.getElementById("checkBtn").onclick = function () {
                   )}</span></div>`
                 : ""
             }
-            <div class="metric"><span class="metric-label">비활성화 상태:</span><span class="metric-value">${
-              info.isDisabled ? "비활성화" : "활성화"
-            }</span></div>
-          </div>
         </details>`;
     });
     htmlResult += `</section>`;
