@@ -104,7 +104,6 @@ function analyzeSelect(doc, originalCode) {
   });
 
   selects.forEach((select, index) => {
-    // selectInfo 객체에 누락된 속성(optionsWithoutValue 등)을 0으로 초기화
     const selectInfo = {
       index: index + 1,
       hasId: select.hasAttribute("id"),
@@ -119,8 +118,6 @@ function analyzeSelect(doc, originalCode) {
       ariaLabelledbyText: "",
       hasAriaDescribedby: select.hasAttribute("aria-describedby"),
       hasHrElements: select.querySelectorAll("hr").length > 0,
-      optionsCount: select.options.length,
-      optionsWithoutValue: 0,
       hasEmptyOption: false,
       duplicateAriaAttributes: [],
     };
@@ -139,7 +136,6 @@ function analyzeSelect(doc, originalCode) {
       selectInfo.ariaLabelledbyText = texts.join(" ");
     }
 
-    // Label 연결 체크 - 여러 방식을 모두 인정
     // 1. 명시적 label (for 속성)
     if (selectInfo.hasId) {
       const labels = doc.querySelectorAll(`label[for="${selectInfo.id}"]`);
@@ -185,33 +181,21 @@ function analyzeSelect(doc, originalCode) {
       selectInfo.labelValid = true;
     }
 
-    // Options 분석
-    Array.from(select.options).forEach((option) => {
-      if (
-        !option.hasAttribute("value") ||
-        option.getAttribute("value") === ""
-      ) {
-        if (
-          option.textContent.trim() === "" ||
-          option.textContent.includes("--") ||
-          option.textContent.includes("선택")
-        ) {
-          selectInfo.hasEmptyOption = true;
-        } else {
-          selectInfo.optionsWithoutValue++;
-        }
+    // required 속성과 aria-required 속성 검사
+    if (select.hasAttribute("required")) {
+      if (!select.hasAttribute("aria-required")) {
+        results.issues.push(
+          `Select #${selectInfo.index}: required 속성이 있지만 aria-required 속성이 없습니다. 스크린 리더 호환성을 위해 aria-required="true"도 추가하세요.`
+        );
+      } else if (select.getAttribute("aria-required") !== "true") {
+        results.issues.push(
+          `Select #${selectInfo.index}: required 속성이 있을 때 aria-required는 "true"여야 합니다.`
+        );
+      } else {
+        results.successes.push(
+          `Select #${selectInfo.index}: required와 aria-required="true"가 올바르게 함께 사용되었습니다.`
+        );
       }
-    });
-
-    // 중복 속성 및 상태 속성 검사를 '경고'로 분류
-    if (
-      select.hasAttribute("required") &&
-      select.hasAttribute("aria-required")
-    ) {
-      selectInfo.duplicateAriaAttributes.push("required와 aria-required");
-      results.issues.push(
-        `Select #${selectInfo.index}: required와 aria-required가 동시에 사용됨. required만 사용하세요.`
-      );
     }
 
     if (select.getAttribute("aria-invalid") === "true") {
@@ -325,23 +309,27 @@ document.getElementById("checkBtn").onclick = function () {
   if (analysis.selects.length > 0) {
     htmlResult += `<section><h2>📊 상세 정보</h2>`;
     analysis.selects.forEach((info) => {
-      const idDisplay = info.hasId ? `id="${info.id}"` : "id 없음";
+      const idDisplay = info.hasId
+        ? `id="${info.id}"${
+            info.labelText ? `, label="${escapeHtml(info.labelText)}"` : ""
+          }`
+        : "id 없음";
 
       htmlResult += `
         <details>
           <summary>▶ Select #${info.index} (${idDisplay})</summary>
           <div style="padding: 1rem 0;">
-            <div class="metric"><span class="metric-label">ID명:</span><span class="metric-value ${
+            <div class="metric"><span class="metric-label">ID 속성:</span><span class="metric-value ${
               info.hasId ? "ok" : "warn"
             }">${info.hasId ? info.id : "없음"}</span></div>
-            <div class="metric"><span class="metric-label">label 연결:</span><span class="metric-value ${
+            <div class="metric"><span class="metric-label">Label 연결:</span><span class="metric-value ${
               info.hasLabel ? "ok" : "critical"
             }">${
         info.hasLabel ? `있음 (${info.labelType})` : "없음"
       }</span></div>
             ${
               info.labelText
-                ? `<div class="metric"><span class="metric-label">label 이름:</span><span class="metric-value">"${escapeHtml(
+                ? `<div class="metric"><span class="metric-label">Label 텍스트:</span><span class="metric-value">"${escapeHtml(
                     info.labelText
                   )}"</span></div>`
                 : ""
@@ -389,7 +377,7 @@ document.getElementById("checkBtn").onclick = function () {
         <li><strong>▷ ID 중복 금지:</strong> 페이지 내 모든 ID는 고유해야 합니다. </li>
         <li><strong>▷ 중복 속성 제거:</strong> 같은 용도로 사용되는 속성은 하나만 사용해주세요.</li>
         <li><strong>▷ 의미있는 요소 사용:</strong> select 내부의 <code>&lt;hr&gt;</code>은 스크린 리더에 전달되지 않습니다. <code>&lt;optgroup&gt;</code>으로 그룹화하는 것이 좋습니다.</li>
-        <li><strong>▷ 키보드 접근성:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시 키보드 함정(keyboard trap)이 발생하지 않도록 주의해야 합니다.</li>
+        <li><strong>▷ 태그 커스텀:</strong> select 요소는 기본적으로 키보드로 접근 가능하지만, 커스텀 스타일링 시에는 주의해야 합니다.</li>
     </ul>
     </section>`;
 
