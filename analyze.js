@@ -14,6 +14,51 @@ function getLineNumber(code, snippet) {
   return code.slice(0, index).split("\n").length;
 }
 
+// 요소의 줄 번호를 찾는 함수
+function getElementLineNumber(code, element) {
+  // 요소의 고유한 특성을 찾아서 줄 번호 계산
+  const tagName = element.tagName.toLowerCase();
+  const id = element.getAttribute("id");
+  const className = element.getAttribute("class");
+
+  let searchPattern = "";
+
+  if (id) {
+    searchPattern = `<${tagName}[^>]*id="${id}"`;
+  } else if (className) {
+    searchPattern = `<${tagName}[^>]*class="${className}"`;
+  } else {
+    // ID나 class가 없는 경우, 태그 이름으로 찾되 순서를 고려
+    const allSameTagElements = Array.from(document.querySelectorAll(tagName));
+    const elementIndex = allSameTagElements.indexOf(element);
+
+    const regex = new RegExp(`<${tagName}\\b[^>]*>`, "gi");
+    let match;
+    let currentIndex = 0;
+
+    while ((match = regex.exec(code)) !== null) {
+      if (currentIndex === elementIndex) {
+        const beforeText = code.slice(0, match.index);
+        return beforeText.split("\n").length;
+      }
+      currentIndex++;
+    }
+  }
+
+  if (searchPattern) {
+    const regex = new RegExp(searchPattern, "i");
+    const match = code.match(regex);
+    if (match) {
+      const index = code.indexOf(match[0]);
+      if (index !== -1) {
+        return code.slice(0, index).split("\n").length;
+      }
+    }
+  }
+
+  return null;
+}
+
 // HTML 마크업 유효성 검사
 function validateMarkup(code) {
   const issues = [];
@@ -111,15 +156,24 @@ function analyzeSelect(doc, originalCode) {
 
   idMap.forEach((elements, id) => {
     if (elements.length > 1) {
+      const lineNumbers = elements
+        .map((el) => getElementLineNumber(originalCode, el))
+        .filter((ln) => ln !== null);
+      const lineInfo =
+        lineNumbers.length > 0 ? ` (${lineNumbers.join(", ")}번째 줄)` : "";
       results.issues.push(
-        `중복 ID: "${id}"가 ${elements.length}개 요소에서 사용됨`
+        `중복 ID: "${id}"가 ${elements.length}개 요소에서 사용됨${lineInfo}`
       );
     }
   });
 
   selects.forEach((select, index) => {
+    const selectLineNumber = getElementLineNumber(originalCode, select);
+    const linePrefix = selectLineNumber ? `${selectLineNumber}번째 줄: ` : "";
+
     const selectInfo = {
       index: index + 1,
+      lineNumber: selectLineNumber,
       hasId: select.hasAttribute("id"),
       id: select.getAttribute("id") || "",
       hasLabel: false,
@@ -143,7 +197,7 @@ function analyzeSelect(doc, originalCode) {
         const el = doc.getElementById(id);
         if (el) return el.textContent.trim();
         results.issues.push(
-          `Select #${selectInfo.index}: aria-labelledby가 존재하지 않는 ID '${id}'를 참조함`
+          `${linePrefix}Select #${selectInfo.index}: aria-labelledby가 존재하지 않는 ID '${id}'를 참조함`
         );
         return `[ID "${id}" 없음]`;
       });
@@ -160,7 +214,7 @@ function analyzeSelect(doc, originalCode) {
         selectInfo.labelValid = true;
         if (labels.length > 1) {
           results.issues.push(
-            `Select #${selectInfo.index}: 동일한 for 속성을 가진 label이 ${labels.length}개 발견됨`
+            `${linePrefix}Select #${selectInfo.index}: 동일한 for 속성을 가진 label이 ${labels.length}개 발견됨`
           );
         }
       }
@@ -199,15 +253,15 @@ function analyzeSelect(doc, originalCode) {
     if (select.hasAttribute("required")) {
       if (!select.hasAttribute("aria-required")) {
         results.issues.push(
-          `Select #${selectInfo.index}: required 속성이 있지만 aria-required 속성이 없습니다. 스크린 리더 호환성을 위해 aria-required="true"도 추가하세요.`
+          `${linePrefix}Select #${selectInfo.index}: required 속성이 있지만 aria-required 속성이 없습니다. 스크린 리더 호환성을 위해 aria-required="true"도 추가하세요.`
         );
       } else if (select.getAttribute("aria-required") !== "true") {
         results.issues.push(
-          `Select #${selectInfo.index}: required 속성이 있을 때 aria-required는 "true"여야 합니다.`
+          `${linePrefix}Select #${selectInfo.index}: required 속성이 있을 때 aria-required는 "true"여야 합니다.`
         );
       } else {
         results.successes.push(
-          `Select #${selectInfo.index}: required와 aria-required="true"가 올바르게 함께 사용되었습니다.`
+          `${linePrefix}Select #${selectInfo.index}: required와 aria-required="true"가 올바르게 함께 사용되었습니다.`
         );
       }
     }
@@ -225,15 +279,15 @@ function analyzeSelect(doc, originalCode) {
 
     if (!selectInfo.hasLabel) {
       results.issues.push(
-        `Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 중 하나는 필수입니다.`
+        `${linePrefix}Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 중 하나는 필수입니다.`
       );
     } else {
       results.successes.push(
-        `Select #${selectInfo.index}: ${selectInfo.labelType}이 제공되었습니다.`
+        `${linePrefix}Select #${selectInfo.index}: ${selectInfo.labelType}이 제공되었습니다.`
       );
       if (labelMechanisms.length > 1) {
         results.issues.push(
-          `Select #${
+          `${linePrefix}Select #${
             selectInfo.index
           }: 여러 레이블링 방법(${labelMechanisms.join(
             ", "
@@ -244,7 +298,7 @@ function analyzeSelect(doc, originalCode) {
 
     if (selectInfo.hasHrElements) {
       results.issues.push(
-        `Select #${selectInfo.index}: <hr> 요소는 스크린 리더에 전달되지 않으므로 사용하지 않는 것이 좋습니다.`
+        `${linePrefix}Select #${selectInfo.index}: <hr> 요소는 스크린 리더에 전달되지 않으므로 사용하지 않는 것이 좋습니다.`
       );
     }
 
@@ -255,7 +309,7 @@ function analyzeSelect(doc, originalCode) {
         !optgroup.getAttribute("label").trim()
       ) {
         results.issues.push(
-          `Select #${selectInfo.index}: optgroup #${
+          `${linePrefix}Select #${selectInfo.index}: optgroup #${
             ogIndex + 1
           }에 label 속성이 없거나 비어있습니다.`
         );
@@ -317,27 +371,23 @@ document.getElementById("checkBtn").onclick = function () {
   if (analysis.selects.length > 0) {
     htmlResult += `<section><h2>📊 상세 정보</h2>`;
     analysis.selects.forEach((info) => {
-      const idDisplay = info.hasId
-        ? `id="${info.id}"${
-            info.labelText ? `, label="${escapeHtml(info.labelText)}"` : ""
-          }`
-        : "id 없음";
+      const idDisplay = info.hasId ? `id="${info.id}"` : "id 없음";
 
       htmlResult += `
         <details>
           <summary>▶ Select #${info.index} (${idDisplay})</summary>
           <div style="padding: 1rem 0;">
-            <div class="metric"><span class="metric-label">ID 속성:</span><span class="metric-value ${
+            <div class="metric"><span class="metric-label">ID명:</span><span class="metric-value ${
               info.hasId ? "ok" : "warn"
             }">${info.hasId ? info.id : "없음"}</span></div>
-            <div class="metric"><span class="metric-label">Label 연결:</span><span class="metric-value ${
+            <div class="metric"><span class="metric-label">label 연결:</span><span class="metric-value ${
               info.hasLabel ? "ok" : "critical"
             }">${
         info.hasLabel ? `있음 (${info.labelType})` : "없음"
       }</span></div>
             ${
               info.labelText
-                ? `<div class="metric"><span class="metric-label">Label 텍스트:</span><span class="metric-value">"${escapeHtml(
+                ? `<div class="metric"><span class="metric-label">label 이름:</span><span class="metric-value">"${escapeHtml(
                     info.labelText
                   )}"</span></div>`
                 : ""
