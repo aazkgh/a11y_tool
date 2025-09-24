@@ -8,6 +8,12 @@ function escapeHtml(str) {
   );
 }
 
+function getLineNumber(code, snippet) {
+  const index = code.indexOf(snippet);
+  if (index === -1) return null;
+  return code.slice(0, index).split("\n").length;
+}
+
 // HTML 마크업 유효성 검사
 function validateMarkup(code) {
   const issues = [];
@@ -35,15 +41,23 @@ function validateMarkup(code) {
     const isClosing = match[0].startsWith("</");
     const tagName = match[1].toLowerCase();
 
+    // 줄 번호 계산
+    const beforeText = code.slice(0, match.index);
+    const lineNumber = beforeText.split("\n").length;
+
     if (!isClosing && !selfClosingTags.includes(tagName)) {
-      tagStack.push({ name: tagName, position: match.index });
+      tagStack.push({ name: tagName, position: match.index, line: lineNumber });
     } else if (isClosing) {
       if (tagStack.length === 0) {
-        issues.push(`닫는 태그 </${tagName}>가 열린 태그 없이 발견됨`);
+        issues.push(
+          `${lineNumber}번째 줄: 닫는 태그 </${tagName}>가 열린 태그 없이 발견됨`
+        );
       } else {
         const lastTag = tagStack[tagStack.length - 1];
         if (lastTag.name !== tagName) {
-          issues.push(`태그 불일치: <${lastTag.name}>가 </${tagName}>로 닫힘`);
+          issues.push(
+            `${lineNumber}번째 줄: 태그 불일치로, <${lastTag.name}>가 </${tagName}>로 닫힘`
+          );
         } else {
           tagStack.pop();
         }
@@ -51,9 +65,11 @@ function validateMarkup(code) {
     }
   }
 
-  tagStack.forEach((tag) => {
-    issues.push(`<${tag.name}> 태그가 닫히지 않음`);
-  });
+  if (tagStack.length > 0) {
+    tagStack.forEach((tag) => {
+      issues.push(`${tag.line}번째 줄: <${tag.name}> 태그가 닫히지 않음`);
+    });
+  }
 
   return issues;
 }
@@ -68,9 +84,7 @@ function analyzeSelect(doc, originalCode) {
   // 마크업 유효성 검사
   const markupIssues = validateMarkup(originalCode);
   if (markupIssues.length > 0) {
-    markupIssues.forEach((issue) => {
-      results.issues.push(`마크업 오류: ${issue}`);
-    });
+    results.issues.push(`${markupIssues[0]}`);
   }
 
   const selects = doc.querySelectorAll("select");
@@ -196,12 +210,6 @@ function analyzeSelect(doc, originalCode) {
           `Select #${selectInfo.index}: required와 aria-required="true"가 올바르게 함께 사용되었습니다.`
         );
       }
-    }
-
-    if (select.getAttribute("aria-invalid") === "true") {
-      results.issues.push(
-        `Select #${selectInfo.index}: aria-invalid="true"로 설정됨. 폼 검증 상태를 명확히 관리하세요.`
-      );
     }
 
     // 접근성 레이블 제공 여부 최종 판단
