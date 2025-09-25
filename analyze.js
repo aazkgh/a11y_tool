@@ -272,7 +272,7 @@ function analyzeSelect(doc, originalCode) {
         // 이 select의 ID와 일치하는 label이 없음
         // 사용되지 않은 label이 있는지 확인
         let hasUnusedLabel = false;
-        labelForValues.forEach((labels, forValue) => {
+        labelForValues.forEach((_, forValue) => {
           if (!connectedSelectIds.has(forValue)) {
             hasUnusedLabel = true;
           }
@@ -290,7 +290,7 @@ function analyzeSelect(doc, originalCode) {
       // ID가 없는 select의 경우
       // 사용되지 않은 label이 있는지 확인
       let hasUnusedLabel = false;
-      labelForValues.forEach((labels, forValue) => {
+      labelForValues.forEach((_, forValue) => {
         if (!connectedSelectIds.has(forValue)) {
           hasUnusedLabel = true;
         }
@@ -348,7 +348,7 @@ function analyzeSelect(doc, originalCode) {
     if (select.hasAttribute("required")) {
       if (!select.hasAttribute("aria-required")) {
         results.issues.push(
-          `${linePrefix}Select #${selectInfo.index}: required 속성이 있지만 aria-required 속성이 없습니다. 스크린 리더 호환성을 위해 aria-required="true"도 추가하세요.`
+          `${linePrefix}Select #${selectInfo.index}: required 속성이 있지만 aria-required 속성이 없습니다. 보조기술 사용을 위해 aria-required="true"도 추가하세요.`
         );
       } else if (select.getAttribute("aria-required") !== "true") {
         results.issues.push(
@@ -391,7 +391,7 @@ function analyzeSelect(doc, originalCode) {
       } else if (labelConnectionType === "mismatch") {
         // label은 있지만 대응되지 않는 경우
         results.issues.push(
-          `${linePrefix}Select #${selectInfo.index}: 일치하는 레이블이 없습니다. for 속성값과 select의 id가 일치하는지 확인하세요.`
+          `${linePrefix}Select #${selectInfo.index}: 일치하는 레이블이 없습니다. label의 for 속성값과 select의 id가 일치하는지 확인하세요.`
         );
       } else {
         // 기타 경우
@@ -447,7 +447,7 @@ document.getElementById("checkBtn").onclick = function () {
 
   if (!code) {
     resultDiv.innerHTML =
-      '<span class="critical">※ HTML 코드를 입력해주세요.</span>';
+      '<span class="critical">HTML 코드를 입력해주세요.</span>';
     return;
   }
 
