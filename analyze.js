@@ -144,8 +144,8 @@ function analyzeSelect(doc, originalCode) {
   const allElements = doc.querySelectorAll("[id]");
   allElements.forEach((el) => {
     const id = el.getAttribute("id");
-    if (id) {
-      // ID가 비어있지 않은 경우에만 체크
+    if (id && id.trim() !== "") {
+      // 빈 ID 체크 수정
       if (idMap.has(id)) {
         idMap.get(id).push(el);
       } else {
@@ -164,6 +164,26 @@ function analyzeSelect(doc, originalCode) {
       results.issues.push(
         `중복 ID: "${id}"가 ${elements.length}개 요소에서 사용됨${lineInfo}`
       );
+    }
+  });
+
+  // 모든 label과 select 연결 상태를 파악
+  const labelForValues = new Map(); // for 속성을 가진 모든 label들
+  const connectedSelectIds = new Set(); // 실제로 label과 연결된 select의 ID들
+
+  doc.querySelectorAll("label[for]").forEach((label) => {
+    const forValue = label.getAttribute("for");
+    if (forValue && forValue.trim() !== "") {
+      if (!labelForValues.has(forValue)) {
+        labelForValues.set(forValue, []);
+      }
+      labelForValues.get(forValue).push(label);
+
+      // 이 for 값과 일치하는 select가 있는지 확인
+      const targetSelect = doc.querySelector(`select#${CSS.escape(forValue)}`);
+      if (targetSelect) {
+        connectedSelectIds.add(forValue);
+      }
     }
   });
 
@@ -190,33 +210,97 @@ function analyzeSelect(doc, originalCode) {
       duplicateAriaAttributes: [],
     };
 
-    // aria-labelledby 검증
-    if (selectInfo.hasAriaLabelledby) {
-      const ids = select.getAttribute("aria-labelledby").split(/\s+/);
-      const texts = ids.map((id) => {
-        const el = doc.getElementById(id);
-        if (el) return el.textContent.trim();
-        results.issues.push(
-          `${linePrefix}Select #${selectInfo.index}: aria-labelledby가 존재하지 않는 ID '${id}'를 참조함`
-        );
-        return `[ID "${id}" 없음]`;
-      });
-      selectInfo.ariaLabelledbyText = texts.join(" ");
+    // ID가 빈 값인지 체크
+    if (selectInfo.hasId && (!selectInfo.id || selectInfo.id.trim() === "")) {
+      results.issues.push(
+        `${linePrefix}Select #${selectInfo.index}: id 속성이 빈 값입니다.`
+      );
     }
 
-    // 1. 명시적 label (for 속성)
-    if (selectInfo.hasId) {
-      const labels = doc.querySelectorAll(`label[for="${selectInfo.id}"]`);
-      if (labels.length > 0) {
+    // aria-label이 빈 값인지 체크
+    if (
+      selectInfo.hasAriaLabel &&
+      (!selectInfo.ariaLabelText || selectInfo.ariaLabelText.trim() === "")
+    ) {
+      results.issues.push(
+        `${linePrefix}Select #${selectInfo.index}: aria-label 속성이 빈 값입니다.`
+      );
+    }
+
+    // aria-labelledby 검증
+    if (selectInfo.hasAriaLabelledby) {
+      const labelledbyValue = select.getAttribute("aria-labelledby");
+      if (!labelledbyValue || labelledbyValue.trim() === "") {
+        results.issues.push(
+          `${linePrefix}Select #${selectInfo.index}: aria-labelledby 속성이 빈 값입니다.`
+        );
+      } else {
+        const ids = labelledbyValue.split(/\s+/);
+        const texts = ids.map((id) => {
+          const el = doc.getElementById(id);
+          if (el) return el.textContent.trim();
+          results.issues.push(
+            `${linePrefix}Select #${selectInfo.index}: aria-labelledby가 존재하지 않는 ID '${id}'를 참조함`
+          );
+          return `[ID "${id}" 없음]`;
+        });
+        selectInfo.ariaLabelledbyText = texts.join(" ");
+      }
+    }
+
+    // Label 연결 상태 체크
+    let labelConnectionType = null;
+
+    // 1. 명시적 label (for 속성) 체크
+    if (selectInfo.hasId && selectInfo.id.trim() !== "") {
+      const matchingLabels = labelForValues.get(selectInfo.id) || [];
+
+      if (matchingLabels.length > 0) {
+        // 이 select의 ID와 일치하는 for 속성을 가진 label이 있음
         selectInfo.hasLabel = true;
-        selectInfo.labelText = labels[0].textContent.trim();
+        selectInfo.labelText = matchingLabels[0].textContent.trim();
         selectInfo.labelType = "for 속성 연결";
         selectInfo.labelValid = true;
-        if (labels.length > 1) {
+        labelConnectionType = "explicit";
+
+        if (matchingLabels.length > 1) {
           results.issues.push(
-            `${linePrefix}Select #${selectInfo.index}: 동일한 for 속성을 가진 label이 ${labels.length}개 발견됨`
+            `${linePrefix}Select #${selectInfo.index}: 동일한 for 속성을 가진 label이 ${matchingLabels.length}개 발견됨`
           );
         }
+      } else {
+        // 이 select의 ID와 일치하는 label이 없음
+        // 사용되지 않은 label이 있는지 확인
+        let hasUnusedLabel = false;
+        labelForValues.forEach((labels, forValue) => {
+          if (!connectedSelectIds.has(forValue)) {
+            hasUnusedLabel = true;
+          }
+        });
+
+        if (hasUnusedLabel) {
+          // 사용되지 않은 label이 있지만 이 select와 매치되지 않음
+          labelConnectionType = "mismatch";
+        } else {
+          // 모든 label이 다른 select와 연결되어 있음
+          labelConnectionType = "no-label";
+        }
+      }
+    } else if (!selectInfo.hasId) {
+      // ID가 없는 select의 경우
+      // 사용되지 않은 label이 있는지 확인
+      let hasUnusedLabel = false;
+      labelForValues.forEach((labels, forValue) => {
+        if (!connectedSelectIds.has(forValue)) {
+          hasUnusedLabel = true;
+        }
+      });
+
+      if (hasUnusedLabel) {
+        // 사용되지 않은 label이 있지만 이 select는 ID가 없어서 연결 불가
+        labelConnectionType = "mismatch";
+      } else {
+        labelConnectionType = "no-label";
       }
     }
 
@@ -230,23 +314,34 @@ function analyzeSelect(doc, originalCode) {
         selectInfo.labelText = clone.textContent.trim();
         selectInfo.labelType = "암시적 연결 (label 내부)";
         selectInfo.labelValid = true;
+        labelConnectionType = "implicit";
       }
     }
 
     // 3. aria-labelledby를 Label 연결로 인정
-    if (!selectInfo.hasLabel && selectInfo.hasAriaLabelledby) {
+    if (
+      !selectInfo.hasLabel &&
+      selectInfo.hasAriaLabelledby &&
+      selectInfo.ariaLabelledbyText.trim() !== ""
+    ) {
       selectInfo.hasLabel = true;
       selectInfo.labelText = selectInfo.ariaLabelledbyText;
       selectInfo.labelType = "aria-labelledby";
       selectInfo.labelValid = true;
+      labelConnectionType = "aria-labelledby";
     }
 
     // 4. aria-label을 Label 연결로 인정
-    if (!selectInfo.hasLabel && selectInfo.hasAriaLabel) {
+    if (
+      !selectInfo.hasLabel &&
+      selectInfo.hasAriaLabel &&
+      selectInfo.ariaLabelText.trim() !== ""
+    ) {
       selectInfo.hasLabel = true;
       selectInfo.labelText = selectInfo.ariaLabelText;
       selectInfo.labelType = "aria-label";
       selectInfo.labelValid = true;
+      labelConnectionType = "aria-label";
     }
 
     // required 속성과 aria-required 속성 검사
@@ -268,19 +363,42 @@ function analyzeSelect(doc, originalCode) {
 
     // 접근성 레이블 제공 여부 최종 판단
     const labelMechanisms = [];
-    // 실제 label 요소가 있는지 별도로 체크
     const hasRealLabel =
       selectInfo.labelType === "for 속성 연결" ||
       selectInfo.labelType === "암시적 연결 (label 내부)";
 
     if (hasRealLabel) labelMechanisms.push("label");
-    if (selectInfo.hasAriaLabel) labelMechanisms.push("aria-label");
-    if (selectInfo.hasAriaLabelledby) labelMechanisms.push("aria-labelledby");
+    if (selectInfo.hasAriaLabel && selectInfo.ariaLabelText.trim() !== "")
+      labelMechanisms.push("aria-label");
+    if (
+      selectInfo.hasAriaLabelledby &&
+      selectInfo.ariaLabelledbyText.trim() !== ""
+    )
+      labelMechanisms.push("aria-labelledby");
 
+    // 레이블 오류 메시지 분류
     if (!selectInfo.hasLabel) {
-      results.issues.push(
-        `${linePrefix}Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 중 하나는 필수입니다.`
-      );
+      if (
+        labelConnectionType === "no-label" ||
+        (!selectInfo.hasId &&
+          !selectInfo.hasAriaLabel &&
+          !selectInfo.hasAriaLabelledby)
+      ) {
+        // 레이블이 아예 없는 경우
+        results.issues.push(
+          `${linePrefix}Select #${selectInfo.index}: 레이블이 존재하지 않습니다. label, aria-label, aria-labelledby 중 하나는 필수입니다.`
+        );
+      } else if (labelConnectionType === "mismatch") {
+        // label은 있지만 대응되지 않는 경우
+        results.issues.push(
+          `${linePrefix}Select #${selectInfo.index}: 일치하는 레이블이 없습니다. for 속성값과 select의 id가 일치하는지 확인하세요.`
+        );
+      } else {
+        // 기타 경우
+        results.issues.push(
+          `${linePrefix}Select #${selectInfo.index}: 접근 가능한 레이블이 없습니다. label, aria-label, aria-labelledby 중 하나는 필수입니다.`
+        );
+      }
     } else {
       results.successes.push(
         `${linePrefix}Select #${selectInfo.index}: ${selectInfo.labelType}이 제공되었습니다.`
@@ -378,8 +496,8 @@ document.getElementById("checkBtn").onclick = function () {
           <summary>▶ Select #${info.index} (${idDisplay})</summary>
           <div style="padding: 1rem 0;">
             <div class="metric"><span class="metric-label">ID명:</span><span class="metric-value ${
-              info.hasId ? "ok" : "warn"
-            }">${info.hasId ? info.id : "없음"}</span></div>
+              info.hasId && info.id.trim() !== "" ? "ok" : "warn"
+            }">${info.hasId ? info.id || "빈 값" : "없음"}</span></div>
             <div class="metric"><span class="metric-label">label 연결:</span><span class="metric-value ${
               info.hasLabel ? "ok" : "critical"
             }">${
@@ -395,14 +513,14 @@ document.getElementById("checkBtn").onclick = function () {
             ${
               info.hasAriaLabel && info.labelType !== "aria-label"
                 ? `<div class="metric"><span class="metric-label">aria-label:</span><span class="metric-value">"${escapeHtml(
-                    info.ariaLabelText
+                    info.ariaLabelText || "빈 값"
                   )}"</span></div>`
                 : ""
             }
             ${
               info.hasAriaLabelledby && info.labelType !== "aria-labelledby"
                 ? `<div class="metric"><span class="metric-label">aria-labelledby:</span><span class="metric-value">"${escapeHtml(
-                    info.ariaLabelledbyText
+                    info.ariaLabelledbyText || "빈 값"
                   )}"</span></div>`
                 : ""
             }
